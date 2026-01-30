@@ -1,4 +1,4 @@
-name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+修复依赖安装失败）
+name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+修复权限拒绝）
 
 on:
   workflow_dispatch:  # 仅手动触发
@@ -14,24 +14,27 @@ jobs:
       REPO_URL: https://github.com/immortalwrt/immortalwrt
 
     steps:
-      - name: 🔧 系统初始化 & 修复源配置（核心解决依赖问题）
+      - name: 🔧 系统初始化 & 修复源配置（解决权限拒绝）
         run: |
-          # ========== 1. 修复apt源配置 + 启用i386架构（关键） ==========
-          # 启用i386架构（multilib包必需）
+          # ========== 1. 启用i386架构（关键） ==========
           sudo dpkg --add-architecture i386
-          # 重新生成apt源（使用Ubuntu官方完整源）
-          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy main universe multiverse restricted" > /etc/apt/sources.list
-          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main universe multiverse restricted" >> /etc/apt/sources.list
-          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy-security main universe multiverse restricted" >> /etc/apt/sources.list
 
-          # ========== 2. 清理冗余文件 + 处理swap ==========
+          # ========== 2. 修复：用sudo tee写入源文件（获取root权限） ==========
+          # 清空原有源文件 + 写入完整Ubuntu官方源（root权限）
+          sudo tee /etc/apt/sources.list > /dev/null << EOF
+deb http://archive.ubuntu.com/ubuntu/ jammy main universe multiverse restricted
+deb http://archive.ubuntu.com/ubuntu/ jammy-updates main universe multiverse restricted
+deb http://archive.ubuntu.com/ubuntu/ jammy-security main universe multiverse restricted
+EOF
+
+          # ========== 3. 更新源 + 清理冗余文件 ==========
           sudo apt update -y -qq  # 仅基础参数，避免格式错误
           sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
           sudo DEBIAN_FRONTEND=noninteractive apt autoremove -y -qq --purge
           sudo apt clean -y -qq
           sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /var/lib/docker /tmp/* ~/.cache/*
 
-          # 处理swapfile
+          # ========== 4. 处理swapfile占用 ==========
           if swapon --show | grep -q "/swapfile"; then
             sudo swapoff /swapfile && sudo rm -f /swapfile
           fi
@@ -76,12 +79,12 @@ jobs:
           git reset --hard ${TAG_VERSION}
           echo "===== 当前版本：$(git describe --tags) ====="
 
-      - name: 📦 安装ImmortalWrt核心编译依赖（精简适配Ubuntu 22.04）
+      - name: 📦 安装ImmortalWrt核心编译依赖
         run: |
           cd immortalwrt
           # 重新更新源（确保i386架构源生效）
           sudo apt update -y -qq
-          # 安装核心依赖（移除非必需的clang，保留编译必需项）
+          # 安装核心依赖（移除非必需的clang）
           sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq \
             build-essential flex bison g++ gawk \
             gcc-multilib g++-multilib gettext git \

@@ -1,0 +1,63 @@
+# 基础架构配置
+CONFIG_TARGET_x86=y
+CONFIG_TARGET_x86_64=y
+CONFIG_TARGET_x86_64_Generic=y
+CONFIG_TARGET_x86_64_Generic_efi=y  # 强制开启EFI引导
+
+# overlay分区大小（3GB）
+CONFIG_TARGET_IMAGES_PARTITION_OVERLAY_SIZE="3072M"
+
+# 中文界面核心配置
+CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_LUCI=y
+CONFIG_LUCI_BASE_LANG="zh_cn"
+
+# 基础系统工具（SMB/CIFS挂载）
+CONFIG_PACKAGE_cifs-utils=y
+CONFIG_PACKAGE_kmod-fs-cifs=y
+CONFIG_PACKAGE_kmod-fs-ksmbd=y
+
+# 网络共享（Ksmbd）
+CONFIG_PACKAGE_ksmbd-tools=y
+CONFIG_PACKAGE_luci-app-ksmbd=y
+CONFIG_PACKAGE_luci-i18n-ksmbd-zh-cn=y  # Ksmbd中文
+
+# 文件管理（FileBrowser）
+CONFIG_PACKAGE_luci-app-filebrowser=y
+CONFIG_PACKAGE_luci-i18n-filebrowser-zh-cn=y  # FileBrowser中文
+
+# 科学上网（OpenClash）
+CONFIG_PACKAGE_luci-app-openclash=y
+CONFIG_PACKAGE_luci-i18n-openclash-zh-cn=y  # OpenClash中文
+
+# Docker管理（DockerMan）
+CONFIG_PACKAGE_luci-app-dockerman=y
+CONFIG_PACKAGE_docker-ce=y
+CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y  # DockerMan中文
+
+# 下载工具（qBittorrent）
+CONFIG_PACKAGE_luci-app-qbittorrent=y
+CONFIG_PACKAGE_qbittorrent-nox=y
+CONFIG_PACKAGE_luci-i18n-qbittorrent-zh-cn=y  # qBittorrent中文
+
+# 广告过滤（AdGuardHome）
+CONFIG_PACKAGE_luci-app-adguardhome=y
+CONFIG_PACKAGE_luci-i18n-adguardhome-zh-cn=y  # AdGuardHome中文
+
+# KMS激活（vlmcsd）
+CONFIG_PACKAGE_luci-app-vlmcsd=y
+CONFIG_PACKAGE_vlmcsd=y
+CONFIG_PACKAGE_luci-i18n-vlmcsd-zh-cn=y  # vlmcsd中文
+
+# 优化配置（减小固件体积+提升体验）
+CONFIG_TARGET_KERNEL_PARTSIZE=128  # 内核分区128M（足够）
+CONFIG_DEBUG=n  # 关闭调试信息
+CONFIG_STRIP_KERNEL_EXPORTS=y  # 剥离内核符号
+CONFIG_LUCI_THEME_ARGON=y  # 美观的Argon主题（中文适配）
+CONFIG_PACKAGE_wget=y
+CONFIG_PACKAGE_curl=y
+
+# 关闭无用功能（节省空间）
+CONFIG_PACKAGE_luci-app-ttyd=n
+CONFIG_PACKAGE_luci-app-upnp=n
+CONFIG_IPV6=n  # 关闭IPv6（非必需，节省空间）

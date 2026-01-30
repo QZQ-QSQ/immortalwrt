@@ -1,4 +1,4 @@
-name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+双引导+3GB overlay）
+name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+修复retry包缺失）
 
 on:
   workflow_dispatch:  # 仅手动触发
@@ -10,18 +10,30 @@ jobs:
     env:
       OVERLAY_SIZE: 3072M
       TARGET_ARCH: x86/64
-      TAG_VERSION: 24.10.4  # 目标版本Tag（核心！）
-      REPO_URL: https://github.com/immortalwrt/immortalwrt  # 官方仓库
+      TAG_VERSION: 24.10.4  # 目标版本Tag
+      REPO_URL: https://github.com/immortalwrt/immortalwrt
 
     steps:
-      - name: 🔧 系统初始化 & 深度清理空间
+      - name: 🔧 系统初始化 & 深度清理空间（移除retry依赖+抑制apt警告）
         run: |
-          # 清理冗余文件+修复swap占用
-          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
-          sudo apt autoremove -y -qq --purge && sudo apt clean -y -qq
+          # ========== 核心优化：抑制apt CLI警告 + 不安装retry ==========
+          sudo apt update -y -qq \
+            -o=Dpkg::Use-Pty=0 \  # 彻底抑制apt CLI不稳定警告
+            -o=APT::Color=0
+
+          # 卸载无用软件（无retry安装命令）
+          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq \
+            -o=Dpkg::Use-Pty=0 \
+            dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
+
+          sudo DEBIAN_FRONTEND=noninteractive apt autoremove -y -qq --purge \
+            -o=Dpkg::Use-Pty=0
+          sudo apt clean -y -qq
+
+          # 删除冗余文件
           sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /var/lib/docker /tmp/* ~/.cache/*
 
-          # 处理swapfile占用
+          # ========== 处理swapfile占用（保留） ==========
           if swapon --show | grep -q "/swapfile"; then
             sudo swapoff /swapfile && sudo rm -f /swapfile
           fi
@@ -29,63 +41,67 @@ jobs:
           sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
           sudo sysctl vm.swappiness=10
 
-          # 安装git重试工具
-          sudo apt install -y -qq git retry
-
           # 验证空间
           df -h
           free -h
 
-      - name: 📥 拉取ImmortalWrt 24.10.4 Tag源码（解决git fetch失败）
+      - name: 📥 拉取ImmortalWrt 24.10.4 Tag源码（手动循环重试，替代retry）
         run: |
-          # 1. 克隆完整仓库（Tag需完整克隆，浅克隆易失败）
-          echo "===== 克隆ImmortalWrt仓库 ====="
-          retry -n 3 -d 10 git clone ${{ env.REPO_URL }} immortalwrt
+          # ========== 核心修改：手动循环重试git clone（3次） ==========
+          CLONE_SUCCESS=0
+          for i in {1..3}; do
+            echo "===== 第 $i 次尝试克隆仓库 ====="
+            # 删除残留目录，避免冲突
+            rm -rf immortalwrt
+            # 克隆仓库（完整克隆，适配Tag）
+            git clone ${{ env.REPO_URL }} immortalwrt && CLONE_SUCCESS=1 && break
+            echo "❌ 第 $i 次克隆失败，10秒后重试..."
+            sleep 10
+          done
+
+          # 克隆失败则退出
+          if [ $CLONE_SUCCESS -ne 1 ]; then
+            echo "❌ 3次克隆仓库均失败，退出编译"
+            exit 1
+          fi
+
           cd immortalwrt
 
-          # 2. 检查24.10.4 Tag是否存在
+          # ========== 检查并切换到24.10.4 Tag（保留） ==========
           echo "===== 检查${{ env.TAG_VERSION }} Tag是否存在 ====="
           if ! git tag | grep -q "^${{ env.TAG_VERSION }}$"; then
-            # 兼容带v前缀的Tag（如v24.10.4）
             export TAG_VERSION="v${{ env.TAG_VERSION }}"
             if ! git tag | grep -q "^${TAG_VERSION}$"; then
-              echo "❌ 未找到${{ env.TAG_VERSION }}/v${{ env.TAG_VERSION }} Tag，退出编译"
+              echo "❌ 未找到${{ env.TAG_VERSION }}/v${{ env.TAG_VERSION }} Tag"
               exit 1
             fi
           fi
 
-          # 3. 切换到24.10.4 Tag（核心：拉取指定版本）
-          echo "===== 切换到${TAG_VERSION} Tag ====="
           git checkout ${TAG_VERSION}
-          git reset --hard ${TAG_VERSION}  # 确保代码纯净
+          git reset --hard ${TAG_VERSION}
 
-          # 4. 验证切换结果
-          echo "===== 当前版本信息 ====="
-          git describe --tags
-          git branch
+          # 验证版本
+          echo "===== 当前版本：$(git describe --tags) ====="
 
-      - name: 📦 安装编译依赖
+      - name: 📦 安装编译依赖（抑制apt警告）
         run: |
           cd immortalwrt
           sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq \
+            -o=Dpkg::Use-Pty=0 \
             build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
             gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
 
-      - name: ⚙️ 加载自定义配置（双引导+3GB overlay+中文软件）
+      - name: ⚙️ 加载自定义配置（保留）
         run: |
           cd immortalwrt
-          # 复制配置文件（确保仓库根目录有config.seed）
           cp ../config.seed .config
-          # 强制设置3GB overlay
           echo "CONFIG_TARGET_IMAGES_PARTITION_OVERLAY_SIZE=\"${{ env.OVERLAY_SIZE }}\"" >> .config
           echo "CONFIG_TARGET_ROOTFS_PARTSIZE=3072" >> .config
-          # 加载配置并更新feeds
           make defconfig
           ./scripts/feeds update -a && ./scripts/feeds install -a
-          # 国内镜像加速依赖下载
           sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' ./feeds.conf.default
 
-      - name: 📥 下载编译依赖（带重试）
+      - name: 📥 下载编译依赖（手动重试，保留）
         run: |
           cd immortalwrt
           for i in {1..3}; do
@@ -96,7 +112,7 @@ jobs:
           done
           find dl -size -1024c -exec rm -f {} \;
 
-      - name: 🔨 编译固件（智能线程）
+      - name: 🔨 编译固件（保留）
         run: |
           cd immortalwrt
           CORES=$(nproc)
@@ -104,17 +120,17 @@ jobs:
           make -j$COMPILE_CORES || make -j1 V=s
           ls -lh bin/targets/${{ env.TARGET_ARCH }}/
 
-      - name: 📤 上传固件产物
+      - name: 📤 上传固件产物（保留）
         uses: actions/upload-artifact@v4
         with:
           name: ImmortalWrt-x86_64-${{ env.TAG_VERSION }}-EFI-BIOS-${{ github.run_id }}
           path: |
-            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*-efi.img.gz  # EFI固件
-            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.img.gz       # 传统BIOS固件
-            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.iso          # 兼容镜像
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*-efi.img.gz
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.img.gz
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.iso
           retention-days: 7
 
-      - name: 🧹 清理临时文件
+      - name: 🧹 清理临时文件（保留）
         if: always()
         run: |
           if swapon --show | grep -q "/swapfile"; then

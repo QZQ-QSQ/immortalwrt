@@ -1,0 +1,65 @@
+name: Build ImmortalWrt x86_64
+
+on:
+  push:
+    paths:
+      - '.github/workflows/build.yml'
+      - 'diy-part2.sh'
+  workflow_dispatch: # 允许手动触发
+
+env:
+  REPO_URL: https://github.com/immortalwrt/immortalwrt
+  REPO_BRANCH: master
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_COWTRANSFER: false
+  UPLOAD_WETRANSFER: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86/64]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@main
+      with:
+        submodules: true
+
+    - name: Clone ImmortalWrt source
+      run: |
+        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
+        cd openwrt
+
+    - name: Load custom configuration
+      env:
+        CONFIG_URL: https://github.com/qzqqsq/immortalwrt-custom/raw/main/.config
+        DIY_P2_URL: https://github.com/qzqqsq/immortalwrt-custom/raw/main/diy-part2.sh
+      run: |
+        cd openwrt
+        # 下载预置的.config文件
+        wget -O .config $CONFIG_URL
+        # 下载自定义脚本
+        wget -O $DIY_P2_SH $DIY_P2_URL
+        chmod +x $DIY_P2_SH
+
+    - name: Update feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+
+    - name: Run customization script
+      run: |
+        cd openwrt
+        ./$DIY_P2_SH
+
+    - name: Build firmware
+      run: |
+        cd openwrt
+        make defconfig
+        make download -j8
+        make -j$(($(nproc)+1)) || make -j1 V=s

@@ -1,65 +1,119 @@
-name: Build ImmortalWrt x86_64
+# ==================== 目标架构与设备 ====================
+CONFIG_TARGET_x86=y
+CONFIG_TARGET_x86_64=y
+CONFIG_TARGET_MULTI_PROFILE=y
+CONFIG_TARGET_ALL_PROFILES=y
+CONFIG_TARGET_DEVICE_x86_64_DEVICE_generic=y
+CONFIG_TARGET_DEVICE_PACKAGES_x86_64_DEVICE_generic=""
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
 
-on:
-  push:
-    paths:
-      - '.github/workflows/build.yml'
-      - 'diy-part2.sh'
-  workflow_dispatch: # 允许手动触发
+# ==================== 核心编译选项 ====================
+# 调整根分区大小（3GB，即3072个512字节扇区）
+CONFIG_TARGET_ROOTFS_PARTSIZE=3072
+CONFIG_DEVEL=y
+CONFIG_SDK=y
+CONFIG_IMAGEOPT=y
+CONFIG_VERSIONOPT=y
+CONFIG_VERSION_FILENAMES=y
+CONFIG_VERSION_DIST="ImmortalWrt"
+CONFIG_VERSION_REPO="https://downloads.immortalwrt.org/releases/24.10.4"
 
-env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: master
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_COWTRANSFER: false
-  UPLOAD_WETRANSFER: false
+# ==================== 优化与清理 ====================
+CONFIG_AUTOREMOVE=y
+CONFIG_BUILDBOT=y
+CONFIG_BUILD_LOG=y
+CONFIG_CCACHE=y  # 关键：启用缓存以节省空间和时间
+CONFIG_COLLECT_KERNEL_DEBUG=y
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [x86/64]
-    steps:
-    - name: Checkout
-      uses: actions/checkout@main
-      with:
-        submodules: true
+# ==================== 内核模块与特性 ====================
+CONFIG_ALL_KMODS=y
+CONFIG_KERNEL_DEBUG_INFO_BTF=y
+CONFIG_KERNEL_KPROBES=y
+CONFIG_KERNEL_PERF_EVENTS=y
+CONFIG_KERNEL_XDP_SOCKETS=y
+CONFIG_KERNEL_NETKIT=y
+CONFIG_PACKAGE_kmod-e1000=y  # 常见Intel网卡驱动
 
-    - name: Clone ImmortalWrt source
-      run: |
-        git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
-        cd openwrt
+# ==================== 必须的网络共享与存储 ====================
+# SMB/CIFS 核心
+CONFIG_PACKAGE_cifs-mount=y
+CONFIG_PACKAGE_kmod-fs-cifs=y
+# Ksmbd (现代SMB3服务器)
+CONFIG_PACKAGE_ksmbd-server=y
+CONFIG_PACKAGE_ksmbd-utils=y
+CONFIG_PACKAGE_luci-app-ksmbd=y
+CONFIG_PACKAGE_luci-i18n-ksmbd-zh-cn=y
+# NFS (可选)
+CONFIG_PACKAGE_kmod-nfsd=y
+CONFIG_PACKAGE_kmod-nfs-ganesha=y
 
-    - name: Load custom configuration
-      env:
-        CONFIG_URL: https://github.com/qzqqsq/immortalwrt-custom/raw/main/.config
-        DIY_P2_URL: https://github.com/qzqqsq/immortalwrt-custom/raw/main/diy-part2.sh
-      run: |
-        cd openwrt
-        # 下载预置的.config文件
-        wget -O .config $CONFIG_URL
-        # 下载自定义脚本
-        wget -O $DIY_P2_SH $DIY_P2_URL
-        chmod +x $DIY_P2_SH
+# ==================== Docker 容器 ====================
+CONFIG_PACKAGE_docker=y
+CONFIG_PACKAGE_dockerd=y
+CONFIG_PACKAGE_docker-compose=y
+CONFIG_PACKAGE_luci-app-dockerman=y
+CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y
 
-    - name: Update feeds
-      run: |
-        cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+# ==================== 下载工具 ====================
+CONFIG_PACKAGE_qbittorrent=y
+CONFIG_PACKAGE_luci-app-qbittorrent=y
+CONFIG_PACKAGE_luci-i18n-qbittorrent-zh-cn=y
 
-    - name: Run customization script
-      run: |
-        cd openwrt
-        ./$DIY_P2_SH
+# ==================== 网络代理与工具 ====================
+CONFIG_PACKAGE_luci-app-openclash=y
+CONFIG_PACKAGE_luci-i18n-openclash-zh-cn=y
+CONFIG_PACKAGE_vlmcsd=y
 
-    - name: Build firmware
-      run: |
-        cd openwrt
-        make defconfig
-        make download -j8
-        make -j$(($(nproc)+1)) || make -j1 V=s
+# ==================== DNS与广告过滤 ====================
+CONFIG_PACKAGE_adguardhome=y
+CONFIG_PACKAGE_luci-app-adguardhome=y
+CONFIG_PACKAGE_luci-i18n-adguardhome-zh-cn=y
+
+# ==================== 文件管理 ====================
+CONFIG_PACKAGE_filebrowser=y
+
+# ==================== 基础系统与LuCI界面 ====================
+CONFIG_PACKAGE_block-mount=y
+CONFIG_PACKAGE_fdisk=y
+CONFIG_PACKAGE_bash=y
+CONFIG_PACKAGE_htop=y
+CONFIG_PACKAGE_nano=y
+# LuCI 核心与中文
+CONFIG_PACKAGE_luci-i18n-base-zh-cn=y
+CONFIG_PACKAGE_luci-app-attendedsysupgrade=y
+CONFIG_PACKAGE_luci-i18n-attendedsysupgrade-zh-cn=y
+CONFIG_PACKAGE_attendedsysupgrade-common=y
+CONFIG_PACKAGE_rpcd-mod-rpcsys=y
+
+# ==================== 磁盘与镜像格式 ====================
+CONFIG_QCOW2_IMAGES=y
+CONFIG_VDI_IMAGES=y
+CONFIG_VHDX_IMAGES=y
+CONFIG_VMDK_IMAGES=y
+# CONFIG_ISO_IMAGES is not set  # 通常不需要ISO，节省空间
+
+# ==================== 调试与开发工具 (按需精简) ====================
+# 以下为调试包，如果编译失败或空间不足，可批量注释以大幅缩减
+# CONFIG_DWARVES is not set
+# CONFIG_IB is not set
+# CONFIG_JSON_CYCLONEDX_SBOM is not set
+# CONFIG_KERNEL_BPF_EVENTS is not set
+# CONFIG_KERNEL_DEBUG_INFO_BTF_MODULES is not set
+# CONFIG_KERNEL_FTRACE is not set
+# CONFIG_KERNEL_KPROBE_EVENTS is not set
+# CONFIG_KERNEL_MODULE_ALLOW_BTF_MISMATCH is not set
+# CONFIG_MAKE_TOOLCHAIN is not set
+# CONFIG_REPRODUCIBLE_DEBUG_INFO is not set
+# CONFIG_SDK_LLVM_BPF is not set
+# 内核调试包（模块化，非必需）
+# CONFIG_PACKAGE_kmod-xdp-sockets-diag is not set
+# CONFIG_PACKAGE_kselftests-bpf is not set
+# CONFIG_PACKAGE_libbfd is not set
+# CONFIG_PACKAGE_libbz2 is not set
+# CONFIG_PACKAGE_libctf is not set
+# CONFIG_PACKAGE_libdw is not set
+# CONFIG_PACKAGE_libopcodes is not set
+# CONFIG_PACKAGE_libtraceevent is not set
+# CONFIG_PACKAGE_musl-fts is not set
+# CONFIG_PACKAGE_objdump is not set
+# CONFIG_PACKAGE_perf is not set

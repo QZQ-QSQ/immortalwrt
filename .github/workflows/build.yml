@@ -22,7 +22,7 @@ env:
   # 基础设置
   FEEDS_CONF: feeds.conf.default
   # 你的自定义配置仓库（替换YOUR_USERNAME）
-  CONFIG_REPO: "https://github.com/YOUR_GITHUB_USERNAME/immortalwrt-custom"
+  CONFIG_REPO: "https://github.com/qzqqsq/immortalwrt"
   # 编译线程数（根据GitHub Actions机器配置优化）
   MAKE_JOBS: ${{ fromJSON(vars.MAKE_JOBS || '19') }}
 
@@ -39,12 +39,12 @@ jobs:
         repository: immortalwrt/immortalwrt
         ref: v24.10.4
         submodules: recursive
-        path: openwrt
+        path: immortalwrt
 
     # 2. 下载你的自定义配置
     - name: Download custom configuration
       run: |
-        cd openwrt
+        cd immortalwrt
         # 下载.config主配置文件
         wget -q -O .config "${{ env.CONFIG_REPO }}/raw/main/.config"
         # 下载自定义脚本
@@ -87,7 +87,7 @@ jobs:
     # 4. 更新软件源
     - name: Update feeds
       run: |
-        cd openwrt
+        cd immortalwrt
         ./scripts/feeds update -a
         ./scripts/feeds install -a
         echo "✅ Feeds更新完成"
@@ -95,14 +95,14 @@ jobs:
     # 5. 执行自定义脚本（调整overlay大小等）
     - name: Run customization script
       run: |
-        cd openwrt
+        cd immortalwrt
         ./diy-part2.sh
         echo "✅ 自定义脚本执行完成"
 
     # 6. 准备编译环境
     - name: Prepare build environment
       run: |
-        cd openwrt
+        cd immortalwrt
         # 应用最终配置
         make defconfig
         # 检查关键配置
@@ -119,7 +119,7 @@ jobs:
     # 7. 下载所有软件包（关键步骤，避免编译中途失败）
     - name: Download packages
       run: |
-        cd openwrt
+        cd immortalwrt
         # 并行下载，但限制并发数
         make download -j8
         # 检查下载完整性
@@ -129,7 +129,7 @@ jobs:
     # 8. 开始编译（分两步，提高稳定性）
     - name: Compile firmware (step 1)
       run: |
-        cd openwrt
+        cd immortalwrt
         # 第一次编译，使用多线程
         echo "开始第一阶段编译 (使用${{ env.MAKE_JOBS }}线程)..."
         make -j${{ env.MAKE_JOBS }} || echo "第一阶段编译可能有警告，继续..."
@@ -137,7 +137,7 @@ jobs:
 
     - name: Compile firmware (step 2)
       run: |
-        cd openwrt
+        cd immortalwrt
         # 第二次编译，单线程确保完成
         echo "开始最终编译 (单线程确保稳定性)..."
         make -j1 V=s 2>&1 | tail -50
@@ -150,9 +150,9 @@ jobs:
       with:
         name: immortalwrt-firmware-x86_64
         path: |
-          openwrt/bin/targets/x86/64/*.img.gz
-          openwrt/bin/targets/x86/64/*.img
-          openwrt/bin/targets/x86/64/*.manifest
+          immortalwrt/bin/targets/x86/64/*.img.gz
+          immortalwrt/bin/targets/x86/64/*.img
+          immortalwrt/bin/targets/x86/64/*.manifest
         retention-days: 7
         compression-level: 0  # 固件已压缩，无需再压缩
 
@@ -171,6 +171,6 @@ jobs:
         echo "- 精简不必要的软件包"
         
         # 保存错误日志（如果需要调试）
-        if [ -f "openwrt/build.log" ]; then
-          tail -100 openwrt/build.log
+        if [ -f "immortalwrt/build.log" ]; then
+          tail -100 immortalwrt/build.log
         fi

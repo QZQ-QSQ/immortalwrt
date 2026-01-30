@@ -1,0 +1,101 @@
+name: 编译ImmortalWrt x86_64 EFI固件（中文+3GB overlay+空间优化）
+
+on:
+  workflow_dispatch:  # 仅手动触发（避免自动消耗资源）
+
+jobs:
+  build-firmware:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180  # 编译超时保护（3小时）
+    env:
+      OVERLAY_SIZE: 3072M  # overlay分区大小
+      TARGET_ARCH: x86/64
+      BRANCH: openwrt-24.10.4  # 稳定分支
+
+    steps:
+      - name: 🔧 系统初始化 & 深度清理空间（解决空间不足核心）
+        run: |
+          # 1. 清理系统预装无用软件（释放≈6GB）
+          sudo apt purge -y dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
+          sudo apt autoremove -y --purge
+          sudo apt clean -y
+          sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /var/lib/docker /tmp/* ~/.cache/*
+
+          # 2. 创建8GB交换空间（避免内存不足+减轻磁盘压力）
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo sysctl vm.swappiness=10
+
+          # 3. 查看清理后空间（验证效果）
+          echo "===== 清理后磁盘/内存状态 ====="
+          df -h
+          free -h
+
+      - name: 📥 拉取ImmortalWrt源码
+        uses: actions/checkout@v4
+        with:
+          repository: immortalwrt/immortalwrt
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 1  # 浅克隆加速
+
+      - name: 📦 安装编译依赖
+        run: |
+          sudo apt update -y
+          sudo apt install -y build-essential clang flex bison g++ gawk gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
+
+      - name: ⚙️ 加载自定义配置（集成所有软件+3GB overlay）
+        run: |
+          # 复制配置文件
+          mv config.seed .config
+
+          # 强制设置overlay大小（防止配置覆盖）
+          echo "CONFIG_TARGET_IMAGES_PARTITION_OVERLAY_SIZE=\"${{ env.OVERLAY_SIZE }}\"" >> .config
+
+          # 加载配置并更新依赖
+          make defconfig
+          ./scripts/feeds update -a && ./scripts/feeds install -a
+
+          # 国内镜像加速依赖下载（提升速度）
+          sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' ./feeds.conf.default
+
+      - name: 📥 下载编译依赖（带重试机制）
+        run: |
+          # 3次重试下载，解决网络波动问题
+          for i in {1..3}; do
+            echo "===== 第 $i 次下载依赖 ====="
+            make download -j$(nproc) && break
+            if [ $i -eq 3 ]; then exit 1; fi
+            sleep 5
+          done
+
+          # 清理损坏的依赖文件
+          find dl -size -1024c -exec rm -f {} \;
+
+      - name: 🔨 编译固件（智能线程优化）
+        run: |
+          # 智能分配编译线程（核心数>4则用核心数-1，避免卡死）
+          CORES=$(nproc)
+          COMPILE_CORES=$([ $CORES -gt 4 ] && echo $((CORES-1)) || echo $CORES)
+
+          # 多线程编译，失败则单线程输出详细日志
+          make -j$COMPILE_CORES || make -j1 V=s
+
+          # 查看编译产物
+          ls -lh bin/targets/${{ env.TARGET_ARCH }}/
+
+      - name: 📤 上传固件产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImmortalWrt-x86_64-EFI-${{ github.run_id }}
+          path: |
+            bin/targets/${{ env.TARGET_ARCH }}/*-efi.img.gz  # EFI镜像（推荐）
+            bin/targets/${{ env.TARGET_ARCH }}/*-efi.iso     # EFI安装镜像
+          retention-days: 7  # 产物保留7天，节省空间
+
+      - name: 🧹 清理临时文件
+        if: always()
+        run: |
+          sudo swapoff /swapfile
+          sudo rm -f /swapfile

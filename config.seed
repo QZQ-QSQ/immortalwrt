@@ -1,0 +1,122 @@
+# 基础架构配置（保留原有）
+CONFIG_TARGET_x86=y
+CONFIG_TARGET_x86_64=y
+CONFIG_TARGET_MULTI_PROFILE=y       # 开启多配置（核心：支持双引导）
+CONFIG_TARGET_DEVICE_x86_64_DEVICE_generic=y
+CONFIG_TARGET_DEVICE_PACKAGES_x86_64_DEVICE_generic=""
+CONFIG_ALL_KMODS=y
+CONFIG_ALL_NONSHARED=y
+CONFIG_DEVEL=y
+CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+CONFIG_AUTOREMOVE=y
+CONFIG_BUILDBOT=y
+CONFIG_BUILD_LOG=y
+CONFIG_COLLECT_KERNEL_DEBUG=y
+CONFIG_DWARVES=y
+CONFIG_IB=y
+CONFIG_IMAGEOPT=y
+CONFIG_JSON_CYCLONEDX_SBOM=y
+CONFIG_KERNEL_BPF_EVENTS=y
+CONFIG_KERNEL_BPF_STREAM_PARSER=y
+CONFIG_KERNEL_BUILD_DOMAIN="buildbot.infra.immortalwrt.org"
+CONFIG_KERNEL_BUILD_USER="buildbot"
+CONFIG_KERNEL_DEBUG_INFO_BTF=y
+CONFIG_KERNEL_DEBUG_INFO_BTF_MODULES=y
+# CONFIG_KERNEL_DEBUG_INFO_REDUCED is not set
+CONFIG_KERNEL_FTRACE=y
+CONFIG_KERNEL_KPROBES=y
+CONFIG_KERNEL_KPROBE_EVENTS=y
+CONFIG_KERNEL_MODULE_ALLOW_BTF_MISMATCH=y
+CONFIG_KERNEL_NETKIT=y
+CONFIG_KERNEL_PERF_EVENTS=y
+CONFIG_KERNEL_XDP_SOCKETS=y
+CONFIG_MAKE_TOOLCHAIN=y
+CONFIG_PACKAGE_attendedsysupgrade-common=y
+CONFIG_PACKAGE_kmod-e1000=y
+CONFIG_PACKAGE_kmod-xdp-sockets-diag=m
+CONFIG_PACKAGE_kselftests-bpf=m
+CONFIG_PACKAGE_libbfd=m
+CONFIG_PACKAGE_libbz2=m
+CONFIG_PACKAGE_libctf=m
+CONFIG_PACKAGE_libdw=m
+CONFIG_PACKAGE_libopcodes=m
+CONFIG_PACKAGE_libtraceevent=m
+CONFIG_PACKAGE_luci-app-attendedsysupgrade=y
+CONFIG_PACKAGE_luci-i18n-attendedsysupgrade-zh-cn=y
+CONFIG_PACKAGE_musl-fts=m
+CONFIG_PACKAGE_objdump=m
+CONFIG_PACKAGE_perf=m
+CONFIG_PACKAGE_rpcd-mod-rpcsys=y
+CONFIG_QCOW2_IMAGES=y
+CONFIG_REPRODUCIBLE_DEBUG_INFO=y
+CONFIG_SDK=y
+CONFIG_SDK_LLVM_BPF=y
+CONFIG_TARGET_ALL_PROFILES=y         # 生成所有配置的固件（含EFI/BIOS）
+CONFIG_VDI_IMAGES=y
+CONFIG_VERSIONOPT=y
+CONFIG_VERSION_BUG_URL=""
+CONFIG_VERSION_CODE=""
+CONFIG_VERSION_DIST="ImmortalWrt"
+CONFIG_VERSION_FILENAMES=y
+CONFIG_VERSION_HOME_URL=""
+CONFIG_VERSION_HWREV=""
+CONFIG_VERSION_MANUFACTURER=""
+CONFIG_VERSION_MANUFACTURER_URL=""
+CONFIG_VERSION_NUMBER=""
+CONFIG_VERSION_PRODUCT=""
+CONFIG_VERSION_REPO="https://downloads.immortalwrt.org/releases/24.10.4"
+CONFIG_VERSION_SUPPORT_URL=""
+CONFIG_VHDX_IMAGES=n
+CONFIG_VMDK_IMAGES=n
+
+# ===================== 新增/修改的核心配置 =====================
+# 1. 双引导支持（同时生成EFI和传统BIOS固件）
+CONFIG_TARGET_x86_64_Generic=y
+CONFIG_TARGET_x86_64_Generic_efi=y  # 开启EFI引导固件生成
+CONFIG_TARGET_x86_64_Generic_legacy=y # 开启传统BIOS（Legacy）引导固件生成
+CONFIG_EFI_IMAGES=y                 # 生成EFI格式镜像
+CONFIG_LEGACY_IMAGES=y              # 生成传统BIOS格式镜像
+CONFIG_ISO_IMAGES=y                 # 同时生成EFI/BIOS兼容的ISO镜像
+
+# 2. 调整overlay/rootfs分区为3GB（所有引导版本均生效）
+CONFIG_TARGET_ROOTFS_PARTSIZE=3072  # 3GB=3072MB
+CONFIG_TARGET_IMAGES_PARTITION_OVERLAY_SIZE="3072M"  # 双重保障overlay大小
+
+# 3. 中文界面基础配置
+CONFIG_LUCI=y
+CONFIG_LUCI_LANG_zh_Hans=y          # 全局中文
+CONFIG_LUCI_BASE_LANG="zh_cn"
+
+# 4. 新增FileBrowser（含中文）
+CONFIG_PACKAGE_luci-app-filebrowser=y
+CONFIG_PACKAGE_luci-i18n-filebrowser-zh-cn=y
+
+# 5. 新增OpenClash（含中文）
+CONFIG_PACKAGE_luci-app-openclash=y
+CONFIG_PACKAGE_luci-i18n-openclash-zh-cn=y
+
+# 6. 新增DockerMan（Docker管理，含中文）
+CONFIG_PACKAGE_luci-app-dockerman=y
+CONFIG_PACKAGE_docker-ce=y          # Docker核心依赖
+CONFIG_PACKAGE_luci-i18n-dockerman-zh-cn=y
+
+# 7. 新增qBittorrent（含中文）
+CONFIG_PACKAGE_luci-app-qbittorrent=y
+CONFIG_PACKAGE_qbittorrent-nox=y    # qBittorrent无界面版（适配路由）
+CONFIG_PACKAGE_luci-i18n-qbittorrent-zh-cn=y
+
+# 8. 新增AdGuardHome（含中文）
+CONFIG_PACKAGE_luci-app-adguardhome=y
+CONFIG_PACKAGE_luci-i18n-adguardhome-zh-cn=y
+
+# 9. 新增vlmcsd（KMS激活，含中文）
+CONFIG_PACKAGE_luci-app-vlmcsd=y
+CONFIG_PACKAGE_vlmcsd=y
+CONFIG_PACKAGE_luci-i18n-vlmcsd-zh-cn=y
+
+# 10. 优化配置（可选，提升体验）
+CONFIG_LUCI_THEME_ARGON=y           # Argon主题（中文适配）
+CONFIG_PACKAGE_curl=y               # 基础工具，部分软件依赖
+CONFIG_PACKAGE_wget=y
+CONFIG_DEBUG=n                      # 关闭调试信息，减小固件体积
+CONFIG_STRIP_KERNEL_EXPORTS=y       # 剥离内核符号，节省空间

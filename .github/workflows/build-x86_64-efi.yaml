@@ -1,4 +1,4 @@
-name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+修正apt参数错误）
+name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+修复依赖安装失败）
 
 on:
   workflow_dispatch:  # 仅手动触发
@@ -14,26 +14,24 @@ jobs:
       REPO_URL: https://github.com/immortalwrt/immortalwrt
 
     steps:
-      - name: 🔧 系统初始化 & 深度清理空间（修正apt参数）
+      - name: 🔧 系统初始化 & 修复源配置（核心解决依赖问题）
         run: |
-          # ========== 核心修正：apt update仅保留基础参数，无多余参数 ==========
-          sudo apt update -y -qq  # apt update不支持任何额外参数，仅保留-y -qq
+          # ========== 1. 修复apt源配置 + 启用i386架构（关键） ==========
+          # 启用i386架构（multilib包必需）
+          sudo dpkg --add-architecture i386
+          # 重新生成apt源（使用Ubuntu官方完整源）
+          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy main universe multiverse restricted" > /etc/apt/sources.list
+          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main universe multiverse restricted" >> /etc/apt/sources.list
+          sudo echo "deb http://archive.ubuntu.com/ubuntu/ jammy-security main universe multiverse restricted" >> /etc/apt/sources.list
 
-          # ========== 其他apt命令（purge/install/autoremove）添加抑制参数 ==========
-          # 卸载无用软件（仅此处加抑制警告参数）
-          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq \
-            -o=Dpkg::Use-Pty=0 \
-            dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
-
-          # 自动清理（加抑制参数）
-          sudo DEBIAN_FRONTEND=noninteractive apt autoremove -y -qq --purge \
-            -o=Dpkg::Use-Pty=0
+          # ========== 2. 清理冗余文件 + 处理swap ==========
+          sudo apt update -y -qq  # 仅基础参数，避免格式错误
+          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
+          sudo DEBIAN_FRONTEND=noninteractive apt autoremove -y -qq --purge
           sudo apt clean -y -qq
-
-          # 删除冗余文件
           sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /var/lib/docker /tmp/* ~/.cache/*
 
-          # ========== 处理swapfile占用（保留） ==========
+          # 处理swapfile
           if swapon --show | grep -q "/swapfile"; then
             sudo swapoff /swapfile && sudo rm -f /swapfile
           fi
@@ -45,13 +43,13 @@ jobs:
           df -h
           free -h
 
-      - name: 📥 拉取ImmortalWrt 24.10.4 Tag源码（手动重试）
+      - name: 📥 拉取ImmortalWrt 24.10.4 Tag源码
         run: |
-          # 手动循环重试git clone（3次，间隔10秒）
+          # 手动循环重试git clone（3次）
           CLONE_SUCCESS=0
           for i in {1..3}; do
             echo "===== 第 $i 次尝试克隆仓库 ====="
-            rm -rf immortalwrt  # 删除残留目录
+            rm -rf immortalwrt
             git clone ${{ env.REPO_URL }} immortalwrt && CLONE_SUCCESS=1 && break
             echo "❌ 第 $i 次克隆失败，10秒后重试..."
             sleep 10
@@ -78,14 +76,17 @@ jobs:
           git reset --hard ${TAG_VERSION}
           echo "===== 当前版本：$(git describe --tags) ====="
 
-      - name: 📦 安装编译依赖（修正apt参数）
+      - name: 📦 安装ImmortalWrt核心编译依赖（精简适配Ubuntu 22.04）
         run: |
           cd immortalwrt
-          # apt install添加抑制参数，update已提前执行
+          # 重新更新源（确保i386架构源生效）
+          sudo apt update -y -qq
+          # 安装核心依赖（移除非必需的clang，保留编译必需项）
           sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq \
-            -o=Dpkg::Use-Pty=0 \
-            build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
-            gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
+            build-essential flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git \
+            libncurses5-dev libssl-dev python3-distutils \
+            rsync unzip zlib1g-dev file wget curl
 
       - name: ⚙️ 加载自定义配置
         run: |
@@ -95,6 +96,7 @@ jobs:
           echo "CONFIG_TARGET_ROOTFS_PARTSIZE=3072" >> .config
           make defconfig
           ./scripts/feeds update -a && ./scripts/feeds install -a
+          # 国内镜像加速依赖下载
           sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' ./feeds.conf.default
 
       - name: 📥 下载编译依赖（手动重试）

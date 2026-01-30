@@ -1,4 +1,4 @@
-name: 编译ImmortalWrt x86_64 EFI固件（中文+3GB overlay+修复swap占用）
+name: 编译ImmortalWrt x86_64 EFI固件（24.10.4版本+双引导+3GB overlay）
 
 on:
   workflow_dispatch:  # 仅手动触发
@@ -10,70 +10,84 @@ jobs:
     env:
       OVERLAY_SIZE: 3072M
       TARGET_ARCH: x86/64
-      BRANCH: openwrt-23.05
+      TAG_VERSION: 24.10.4  # 目标版本Tag（核心！）
+      REPO_URL: https://github.com/immortalwrt/immortalwrt  # 官方仓库
 
     steps:
-      - name: 🔧 系统初始化 & 深度清理空间（修复swap占用+抑制apt警告）
+      - name: 🔧 系统初始化 & 深度清理空间
         run: |
-          # ========== 1. 优化apt命令，抑制CLI不稳定警告 ==========
-          sudo apt update -y -qq  # -qq：静默模式，减少警告
-          # 用DEBIAN_FRONTEND抑制交互提示，-y --assume-yes确认所有操作
-          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq \
-            dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
-          sudo DEBIAN_FRONTEND=noninteractive apt autoremove -y -qq --purge
-          sudo apt clean -y -qq
+          # 清理冗余文件+修复swap占用
+          sudo DEBIAN_FRONTEND=noninteractive apt purge -y -qq dotnet* ghc* android* firefox llvm* powershell mono-devel snapd flatpak
+          sudo apt autoremove -y -qq --purge && sudo apt clean -y -qq
           sudo rm -rf /var/lib/apt/lists/* /usr/share/dotnet /usr/local/lib/android /opt/ghc /var/lib/docker /tmp/* ~/.cache/*
 
-          # ========== 2. 修复swapfile占用问题（核心） ==========
-          # 先检查并关闭现有swap
+          # 处理swapfile占用
           if swapon --show | grep -q "/swapfile"; then
-            echo "检测到现有/swapfile，先关闭并删除..."
-            sudo swapoff /swapfile
-            sudo rm -f /swapfile
+            sudo swapoff /swapfile && sudo rm -f /swapfile
           fi
-          # 再次检查是否残留（防止删除失败）
-          if [ -f "/swapfile" ]; then
-            echo "强制删除残留的/swapfile..."
-            sudo rm -rf /swapfile
-          fi
-
-          # 创建新的8GB交换文件（改用dd命令，兼容更多场景）
-          echo "创建8GB交换文件..."
           sudo dd if=/dev/zero of=/swapfile bs=1G count=8 status=progress
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
           sudo sysctl vm.swappiness=10
 
-          # ========== 3. 验证空间和swap ==========
-          echo "===== 清理后磁盘/内存/swap状态 ====="
+          # 安装git重试工具
+          sudo apt install -y -qq git retry
+
+          # 验证空间
           df -h
           free -h
-          swapon --show
 
-      - name: 📥 拉取ImmortalWrt源码
-        uses: actions/checkout@v4
-        with:
-          repository: immortalwrt/immortalwrt
-          ref: ${{ env.BRANCH }}
-          fetch-depth: 1
-
-      - name: 📦 安装编译依赖（优化apt警告）
+      - name: 📥 拉取ImmortalWrt 24.10.4 Tag源码（解决git fetch失败）
         run: |
+          # 1. 克隆完整仓库（Tag需完整克隆，浅克隆易失败）
+          echo "===== 克隆ImmortalWrt仓库 ====="
+          retry -n 3 -d 10 git clone ${{ env.REPO_URL }} immortalwrt
+          cd immortalwrt
+
+          # 2. 检查24.10.4 Tag是否存在
+          echo "===== 检查${{ env.TAG_VERSION }} Tag是否存在 ====="
+          if ! git tag | grep -q "^${{ env.TAG_VERSION }}$"; then
+            # 兼容带v前缀的Tag（如v24.10.4）
+            export TAG_VERSION="v${{ env.TAG_VERSION }}"
+            if ! git tag | grep -q "^${TAG_VERSION}$"; then
+              echo "❌ 未找到${{ env.TAG_VERSION }}/v${{ env.TAG_VERSION }} Tag，退出编译"
+              exit 1
+            fi
+          fi
+
+          # 3. 切换到24.10.4 Tag（核心：拉取指定版本）
+          echo "===== 切换到${TAG_VERSION} Tag ====="
+          git checkout ${TAG_VERSION}
+          git reset --hard ${TAG_VERSION}  # 确保代码纯净
+
+          # 4. 验证切换结果
+          echo "===== 当前版本信息 ====="
+          git describe --tags
+          git branch
+
+      - name: 📦 安装编译依赖
+        run: |
+          cd immortalwrt
           sudo DEBIAN_FRONTEND=noninteractive apt install -y -qq \
             build-essential clang flex bison g++ gawk gcc-multilib g++-multilib \
             gettext git libncurses5-dev libssl-dev python3-distutils rsync unzip zlib1g-dev file wget curl
 
-      - name: ⚙️ 加载自定义配置
+      - name: ⚙️ 加载自定义配置（双引导+3GB overlay+中文软件）
         run: |
-          mv config.seed .config
+          cd immortalwrt
+          # 复制配置文件（确保仓库根目录有config.seed）
+          cp ../config.seed .config
+          # 强制设置3GB overlay
           echo "CONFIG_TARGET_IMAGES_PARTITION_OVERLAY_SIZE=\"${{ env.OVERLAY_SIZE }}\"" >> .config
+          echo "CONFIG_TARGET_ROOTFS_PARTSIZE=3072" >> .config
+          # 加载配置并更新feeds
           make defconfig
           ./scripts/feeds update -a && ./scripts/feeds install -a
+          # 国内镜像加速依赖下载
           sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' ./feeds.conf.default
 
       - name: 📥 下载编译依赖（带重试）
         run: |
+          cd immortalwrt
           for i in {1..3}; do
             echo "===== 第 $i 次下载依赖 ====="
             make download -j$(nproc) && break
@@ -84,6 +98,7 @@ jobs:
 
       - name: 🔨 编译固件（智能线程）
         run: |
+          cd immortalwrt
           CORES=$(nproc)
           COMPILE_CORES=$([ $CORES -gt 4 ] && echo $((CORES-1)) || echo $CORES)
           make -j$COMPILE_CORES || make -j1 V=s
@@ -92,17 +107,16 @@ jobs:
       - name: 📤 上传固件产物
         uses: actions/upload-artifact@v4
         with:
-          name: ImmortalWrt-x86_64-EFI-${{ github.run_id }}
+          name: ImmortalWrt-x86_64-${{ env.TAG_VERSION }}-EFI-BIOS-${{ github.run_id }}
           path: |
-            bin/targets/${{ env.TARGET_ARCH }}/*-efi.img.gz
-            bin/targets/${{ env.TARGET_ARCH }}/*-efi.iso
-            bin/targets/${{ env.TARGET_ARCH }}/*.img.gz  # 包含传统BIOS固件
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*-efi.img.gz  # EFI固件
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.img.gz       # 传统BIOS固件
+            immortalwrt/bin/targets/${{ env.TARGET_ARCH }}/*.iso          # 兼容镜像
           retention-days: 7
 
       - name: 🧹 清理临时文件
         if: always()
         run: |
           if swapon --show | grep -q "/swapfile"; then
-            sudo swapoff /swapfile
-            sudo rm -f /swapfile
+            sudo swapoff /swapfile && sudo rm -f /swapfile
           fi

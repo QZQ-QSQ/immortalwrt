@@ -1,176 +1,102 @@
-name: Build Custom ImmortalWrt
+name: Build ImmortalWrt Firmware
 
-# 触发条件
 on:
-  # 关键：启用手动触发按钮
   workflow_dispatch:
     inputs:
-      description:
-        description: '编译描述 (可选)'
-        required: false
-        default: '手动触发编译'
-  # 当配置文件更新时自动触发（在你的个人配置仓库）
-  repository_dispatch:
-    types: [config_update]
-  # 推送工作流文件自身时也触发（用于调试）
-  push:
-    paths:
-      - '.github/workflows/build.yml'
-name: Build ImmortalWrt固件
-
+      # 基础编译参数
       version:
-        description: '选择ImmortalWrt版本 (推荐: main 或 v24.10-SNAPSHOT)'
+        description: 'ImmortalWrt 源码分支/版本'
         required: true
-        default: 'main'
-        type: choice
-        options:
-          - 'main'
-          - 'v24.10-SNAPSHOT'
-          - 'openwrt-24.10'
-          - 'openwrt-23.05'
-          - 'openwrt-21.02'
-      
+        default: 'master'
+        type: string
       target_platform:
-        description: '选择目标平台'
+        description: '目标平台（如 x86_64、ramips/mt7621 等）'
         required: true
         default: 'x86_64'
-        type: choice
-        options:
-          - x86_64
-          - rockchip-armv8
-          - rockchip-armv8/r5c
-          - rockchip-armv8/r4s
-          - rockchip-armv8/r4s-enterprise
-          - rockchip-armv8/r2s
-          - rockchip-armv8/r2c
-          - ipq807x/generic
-          - mediatek/mt7986
-          - bcm27xx/bcm2711
-          - bcm27xx/bcm2712
-          - ramips/mt7621
+        type: string
       
-      rootfs_size:
-        description: '根文件系统大小(MB)'
-        required: true
-        default: '1024'
-        type: choice
-        options:
-          - '512'
-          - '1024'
-          - '2048'
-          - '4096'
-          - '8192'
-      
+      # Overlay 自定义
       customize_overlay:
-        description: '是否自定义Overlay大小 (仅x86有效)'
+        description: '自定义Overlay大小'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
+      rootfs_size:
+        description: 'RootFS分区大小 (MB)'
+        required: false
+        default: '1024'
+        type: string
       overlay_size:
-        description: 'Overlay大小(MB) - 安装软件的空间'
-        required: true
-        default: '512'
-        type: choice
-        options:
-          - '256'
-          - '512'
-          - '1024'
-          - '2048'
-          - '4096'
-          - '8192'
-      
+        description: 'Overlay分区大小 (MB)'
+        required: false
+        default: '2048'
+        type: string
       overlay_type:
-        description: 'Overlay类型 (x86)'
-        required: true
-        default: 'f2fs'
+        description: 'Overlay文件系统类型'
+        required: false
+        default: 'ext4'
         type: choice
         options:
           - f2fs
           - ext4
           - squashfs
-      
       expand_kernel:
-        description: '扩展内核分区 (x86)'
-        required: true
+        description: '扩展Kernel分区'
+        required: false
         default: 'false'
         type: boolean
-      
       kernel_size:
-        description: '内核分区大小(MB) (x86)'
-        required: true
-        default: '64'
-        type: choice
-        options:
-          - '32'
-          - '64'
-          - '128'
-          - '256'
+        description: 'Kernel分区大小 (MB)'
+        required: false
+        default: '256'
+        type: string
       
-      clean_build:
-        description: '是否清理编译环境'
-        required: true
-        default: 'false'
-        type: choice
-        options:
-          - 'false'
-          - 'true'
-      
-      # 科学上网类
+      # 科学上网插件
       enable_passwall:
         description: 'PassWall'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_passwall2:
         description: 'PassWall2'
         required: true
         default: 'false'
         type: boolean
-      
       enable_openclash:
         description: 'OpenClash'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_ssr_plus:
         description: 'SSR Plus+'
         required: true
         default: 'false'
         type: boolean
-      
       enable_bypass:
         description: 'Bypass'
         required: true
         default: 'false'
         type: boolean
-      
       enable_v2ray:
-        description: 'V2ray 核心'
+        description: 'V2Ray Core'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_xray:
-        description: 'Xray 核心'
+        description: 'Xray Core'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_hysteria:
         description: 'Hysteria'
         required: true
         default: 'false'
         type: boolean
-      
       enable_tuic:
-        description: 'Tuic'
+        description: 'TUIC Client'
         required: true
         default: 'false'
         type: boolean
-      
       enable_naiveproxy:
         description: 'NaiveProxy'
         required: true
@@ -179,104 +105,91 @@ name: Build ImmortalWrt固件
       
       # 网络加速
       enable_sfe:
-        description: 'SFE 快速转发'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_shortcut_fe:
-        description: 'Shortcut-FE'
+        description: 'SFE 流控'
         required: true
         default: 'false'
         type: boolean
-      
+      enable_shortcut_fe:
+        description: 'Shortcut FE'
+        required: true
+        default: 'false'
+        type: boolean
       enable_fullcone:
-        description: 'FullCone-NAT'
+        description: 'FullCone NAT'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_bbr:
-        description: 'BBR'
+        description: 'BBR 拥塞控制'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_turboacc:
-        description: 'Turbo ACC'
+        description: 'Turbo ACC 加速'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
       
       # 存储管理
       enable_diskman:
-        description: 'Diskman 磁盘管理'
+        description: 'DiskMan 磁盘管理'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_dockerman:
-        description: 'Docker Manager'
+        description: 'DockerMan'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_filebrowser:
-        description: 'FileBrowser'
+        description: 'FileBrowser 文件管理'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_qbittorrent:
-        description: 'qBittorrent'
+        description: 'qBittorrent 下载'
         required: true
         default: 'false'
         type: boolean
-      
       enable_transmission:
-        description: 'Transmission'
+        description: 'Transmission 下载'
         required: true
         default: 'false'
         type: boolean
-      
       enable_aria2:
-        description: 'Aria2'
+        description: 'Aria2 下载'
         required: true
         default: 'false'
         type: boolean
       
       # 文件共享
       enable_samba4:
-        description: 'Samba4'
+        description: 'Samba4 共享'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_nfs:
-        description: 'NFS'
+        description: 'NFS 共享'
         required: true
         default: 'false'
         type: boolean
-      
       enable_ftp:
-        description: 'FTP Server'
+        description: 'FTP 服务'
         required: true
         default: 'false'
         type: boolean
-      
       enable_webdav:
-        description: 'WebDAV'
+        description: 'WebDAV 服务'
         required: true
         default: 'false'
         type: boolean
       
       # 广告过滤
       enable_adguardhome:
-        description: 'AdGuard Home'
+        description: 'AdGuardHome'
         required: true
-        default: 'true'
+        default: 'false'
         type: boolean
-      
       enable_adblock:
         description: 'AdBlock'
         required: true
@@ -285,104 +198,89 @@ name: Build ImmortalWrt固件
       
       # 网络工具
       enable_ddns:
-        description: 'DDNS'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_upnp:
-        description: 'UPnP'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_arpbind:
-        description: 'ARP Bind'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_wol:
-        description: 'WOL 网络唤醒'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_nlbwmon:
-        description: 'NLBWMon 流量监控'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_vlmcsd:
-        description: 'KMS服务器'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_wireguard:
-        description: 'WireGuard'
+        description: 'DDNS 动态域名'
         required: true
         default: 'false'
         type: boolean
-      
+      enable_upnp:
+        description: 'UPnP 端口映射'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_arpbind:
+        description: 'ARP 绑定'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_wol:
+        description: 'WOL 网络唤醒'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_nlbwmon:
+        description: 'NLBWMON 流量监控'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_vlmcsd:
+        description: 'VLMC SD KMS激活'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_wireguard:
+        description: 'WireGuard 虚拟网卡'
+        required: true
+        default: 'false'
+        type: boolean
       enable_openvpn:
         description: 'OpenVPN'
         required: true
         default: 'false'
         type: boolean
-      
       enable_zerotier:
-        description: 'ZeroTier'
+        description: 'ZeroTier 组网'
         required: true
         default: 'false'
         type: boolean
-      
       enable_frpc:
-        description: 'Frp Client'
+        description: 'FRPC 内网穿透'
         required: true
         default: 'false'
         type: boolean
-      
       enable_frps:
-        description: 'Frp Server'
+        description: 'FRPS 内网穿透服务端'
         required: true
         default: 'false'
         type: boolean
       
       # 系统工具
       enable_autoreboot:
-        description: 'Auto Reboot'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_ttyd:
-        description: 'TTYD 网页终端'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_cpufreq:
-        description: 'CPU Freq'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_irqbalance:
-        description: 'IRQ Balance'
-        required: true
-        default: 'true'
-        type: boolean
-      
-      enable_sqm:
-        description: 'SQM QoS'
+        description: 'AutoReboot 自动重启'
         required: true
         default: 'false'
         type: boolean
-      
+      enable_ttyd:
+        description: 'TTYD 网页终端'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_cpufreq:
+        description: 'CPUFreq 调频'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_irqbalance:
+        description: 'IRQBalance 中断均衡'
+        required: true
+        default: 'false'
+        type: boolean
+      enable_sqm:
+        description: 'SQM 流量整形'
+        required: true
+        default: 'false'
+        type: boolean
       enable_netdata:
-        description: 'NetData'
+        description: 'NetData 监控'
         required: true
         default: 'false'
         type: boolean
@@ -393,19 +291,16 @@ name: Build ImmortalWrt固件
         required: true
         default: 'true'
         type: boolean
-      
       enable_design_theme:
         description: 'Design主题'
         required: true
         default: 'false'
         type: boolean
-      
       enable_bootstrap_theme:
         description: 'Bootstrap主题'
         required: true
         default: 'false'
         type: boolean
-      
       enable_edge_theme:
         description: 'Edge主题'
         required: true
@@ -418,19 +313,16 @@ name: Build ImmortalWrt固件
         required: true
         default: 'true'
         type: boolean
-      
       enable_multipath:
         description: '多线多拨'
         required: true
         default: 'false'
         type: boolean
-      
       enable_mwan3:
         description: 'MWAN3 负载均衡'
         required: true
         default: 'false'
         type: boolean
-      
       enable_syncdial:
         description: 'SyncDial 多拨同步'
         required: true
@@ -443,19 +335,16 @@ name: Build ImmortalWrt固件
         required: true
         default: 'false'
         type: boolean
-      
       enable_usb_4g:
         description: 'USB 4G/5G网卡'
         required: true
         default: 'false'
         type: boolean
-      
       enable_usb_audio:
         description: 'USB音频'
         required: true
         default: 'false'
         type: boolean
-      
       enable_usb_serial:
         description: 'USB串口'
         required: true
@@ -468,19 +357,16 @@ name: Build ImmortalWrt固件
         required: true
         default: '192.168.1.1'
         type: string
-      
       default_password:
         description: '默认密码 (留空为password)'
         required: false
         default: ''
         type: string
-      
       hostname:
         description: '主机名'
         required: false
         default: 'ImmortalWrt'
         type: string
-      
       timezone:
         description: '时区'
         required: true
@@ -501,13 +387,11 @@ name: Build ImmortalWrt固件
         required: true
         default: 'true'
         type: boolean
-      
       add_lienol:
         description: '添加Lienol软件源'
         required: true
         default: 'false'
         type: boolean
-      
       add_immortalwrt_packages:
         description: '添加ImmortalWrt官方软件源'
         required: true
@@ -896,57 +780,22 @@ jobs:
         sed -i "s/timezone='UTC'/timezone='${{ github.event.inputs.timezone }}'/g" package/base-files/files/bin/config_generate
         
         mkdir -p files/etc/uci-defaults
-        cat > files/etc/uci-defaults/99-custom << "EOF"
+        cat > files/etc/uci-defaults/99-custom << EOF
 #!/bin/sh
 uci set system.@system[0].zonename='${{ github.event.inputs.timezone }}'
 uci set system.@system[0].timezone='CST-8'
 uci commit system
-exit 0
 EOF
         chmod +x files/etc/uci-defaults/99-custom
-        
-    - name: 下载软件包
+    
+    - name: 开始编译
       run: |
         cd openwrt
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-        
-    - name: 编译固件
-      run: |
-        cd openwrt
-        make -j$(nproc) || make -j1 V=s
-        
-    - name: 整理固件
-      run: |
-        cd openwrt
-        mkdir -p artifacts
-        find bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.gz" -o -name "*.xz" -o -name "*.vmdk" -o -name "*.iso" -o -name "*.manifest" -o -name "sha256sums" \) -exec cp {} artifacts/ \;
-        
-        cd artifacts
-        {
-          echo "=== 固件信息 ==="
-          echo "编译时间: $(date '+%Y-%m-%d %H:%M:%S')"
-          echo "ImmortalWrt版本: ${{ github.event.inputs.version }}"
-          echo "目标平台: ${{ github.event.inputs.target_platform }}"
-          echo "默认IP: ${{ github.event.inputs.default_ip }}"
-          echo "主机名: ${{ github.event.inputs.hostname }}"
-          echo "时区: ${{ github.event.inputs.timezone }}"
-          echo ""
-          echo "=== 包含的主要插件 ==="
-          grep -E "CONFIG_PACKAGE_luci-app-.*=y" ../.config | sed 's/CONFIG_PACKAGE_luci-app-//g' | sed 's/=y//g'
-        } > firmware_info.txt
-        
-    - name: 上传固件
+        make -j$(nproc) download V=s
+        make -j$(nproc) V=s || make -j1 V=s
+    
+    - name: 上传编译产物
       uses: actions/upload-artifact@main
       with:
-        name: ImmortalWrt-${{ github.event.inputs.target_platform }}-${{ github.event.inputs.version }}
-        path: openwrt/artifacts/
-        
-    - name: 上传编译日志（失败时）
-      if: failure()
-      uses: actions/upload-artifact@main
-      with:
-        name: compile-logs
-        path: openwrt/logs/
-
+        name: ImmortalWrt-Firmware-${{ github.event.inputs.target_platform }}
+        path: openwrt/bin/targets/**/*.bin

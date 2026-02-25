@@ -1,21 +1,19 @@
-﻿name: Build ImmortalWrt固件
+name: Build ImmortalWrt固件
 
 on:
   workflow_dispatch:
     inputs:
-      # 基础配置
-      # ===== 请将配置中 on.workflow_dispatch.inputs.version 部分 替换为以下代码 =====
       version:
-        description: '选择ImmortalWrt版本 (最新推荐: 24.10-SNAPSHOT 或 main)'
+        description: '选择ImmortalWrt版本 (推荐: main 或 v24.10-SNAPSHOT)'
         required: true
         default: 'main'
         type: choice
         options:
-          - 'main'                       # 滚动更新版，内核和软件包最新，功能最多，但可能存在小问题[citation:2]
-          - 'v24.10-SNAPSHOT'            # 下一个稳定版的快照，介于稳定和最新之间，比较推荐[citation:1]
-          - 'openwrt-24.10'               # 2024年10月后的稳定版，支持周期长
-          - 'openwrt-23.05'               # 长期维护的旧稳定版，最保险[citation:4]
-          - 'openwrt-21.02'               # 更旧的版本
+          - 'main'
+          - 'v24.10-SNAPSHOT'
+          - 'openwrt-24.10'
+          - 'openwrt-23.05'
+          - 'openwrt-21.02'
       
       target_platform:
         description: '选择目标平台'
@@ -48,7 +46,6 @@ on:
           - '4096'
           - '8192'
       
-      # Overlay自定义
       customize_overlay:
         description: '是否自定义Overlay大小 (仅x86有效)'
         required: true
@@ -104,200 +101,200 @@ on:
           - 'false'
           - 'true'
       
-      # ========== 科学上网类 ==========
+      # 科学上网类
       enable_passwall:
-        description: 'PassWall (代理工具)'
+        description: 'PassWall'
         required: true
         default: 'true'
         type: boolean
       
       enable_passwall2:
-        description: 'PassWall2 (代理工具2)'
+        description: 'PassWall2'
         required: true
         default: 'false'
         type: boolean
       
       enable_openclash:
-        description: 'OpenClash (Clash客户端)'
+        description: 'OpenClash'
         required: true
         default: 'true'
         type: boolean
       
       enable_ssr_plus:
-        description: 'SSR Plus+ (代理工具)'
+        description: 'SSR Plus+'
         required: true
         default: 'false'
         type: boolean
       
       enable_bypass:
-        description: 'Bypass (代理工具)'
+        description: 'Bypass'
         required: true
         default: 'false'
         type: boolean
       
       enable_v2ray:
-        description: 'V2ray (代理核心)'
+        description: 'V2ray 核心'
         required: true
         default: 'true'
         type: boolean
       
       enable_xray:
-        description: 'Xray (代理核心)'
+        description: 'Xray 核心'
         required: true
         default: 'true'
         type: boolean
       
       enable_hysteria:
-        description: 'Hysteria (代理协议)'
+        description: 'Hysteria'
         required: true
         default: 'false'
         type: boolean
       
       enable_tuic:
-        description: 'Tuic (代理协议)'
+        description: 'Tuic'
         required: true
         default: 'false'
         type: boolean
       
       enable_naiveproxy:
-        description: 'NaiveProxy (代理协议)'
+        description: 'NaiveProxy'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 网络加速类 ==========
+      # 网络加速
       enable_sfe:
-        description: 'SFE (快速转发引擎)'
+        description: 'SFE 快速转发'
         required: true
         default: 'true'
         type: boolean
       
       enable_shortcut_fe:
-        description: 'Shortcut-FE (加速引擎)'
+        description: 'Shortcut-FE'
         required: true
         default: 'false'
         type: boolean
       
       enable_fullcone:
-        description: 'FullCone-NAT (全锥形NAT)'
+        description: 'FullCone-NAT'
         required: true
         default: 'true'
         type: boolean
       
       enable_bbr:
-        description: 'BBR (TCP加速)'
+        description: 'BBR'
         required: true
         default: 'true'
         type: boolean
       
       enable_turboacc:
-        description: 'Turbo ACC (网络加速)'
+        description: 'Turbo ACC'
         required: true
         default: 'true'
         type: boolean
       
-      # ========== 存储管理 ==========
+      # 存储管理
       enable_diskman:
-        description: 'Diskman (磁盘管理)'
+        description: 'Diskman 磁盘管理'
         required: true
         default: 'true'
         type: boolean
       
       enable_dockerman:
-        description: 'Docker Manager (Docker管理)'
+        description: 'Docker Manager'
         required: true
         default: 'true'
         type: boolean
       
       enable_filebrowser:
-        description: 'FileBrowser (文件浏览器)'
+        description: 'FileBrowser'
         required: true
         default: 'true'
         type: boolean
       
       enable_qbittorrent:
-        description: 'qBittorrent (下载工具)'
+        description: 'qBittorrent'
         required: true
         default: 'false'
         type: boolean
       
       enable_transmission:
-        description: 'Transmission (BT下载)'
+        description: 'Transmission'
         required: true
         default: 'false'
         type: boolean
       
       enable_aria2:
-        description: 'Aria2 (下载工具)'
+        description: 'Aria2'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 文件共享 ==========
+      # 文件共享
       enable_samba4:
-        description: 'Samba4 (文件共享)'
+        description: 'Samba4'
         required: true
         default: 'true'
         type: boolean
       
       enable_nfs:
-        description: 'NFS (网络文件系统)'
+        description: 'NFS'
         required: true
         default: 'false'
         type: boolean
       
       enable_ftp:
-        description: 'FTP Server (FTP服务器)'
+        description: 'FTP Server'
         required: true
         default: 'false'
         type: boolean
       
       enable_webdav:
-        description: 'WebDAV (文件共享)'
+        description: 'WebDAV'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 广告过滤 ==========
+      # 广告过滤
       enable_adguardhome:
-        description: 'AdGuard Home (广告过滤)'
+        description: 'AdGuard Home'
         required: true
         default: 'true'
         type: boolean
       
       enable_adblock:
-        description: 'AdBlock (广告屏蔽)'
+        description: 'AdBlock'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 网络工具 ==========
+      # 网络工具
       enable_ddns:
-        description: 'DDNS (动态域名)'
+        description: 'DDNS'
         required: true
         default: 'true'
         type: boolean
       
       enable_upnp:
-        description: 'UPnP (即插即用)'
+        description: 'UPnP'
         required: true
         default: 'true'
         type: boolean
       
       enable_arpbind:
-        description: 'ARP Bind (IP/MAC绑定)'
+        description: 'ARP Bind'
         required: true
         default: 'true'
         type: boolean
       
       enable_wol:
-        description: 'WOL (网络唤醒)'
+        description: 'WOL 网络唤醒'
         required: true
         default: 'true'
         type: boolean
       
       enable_nlbwmon:
-        description: 'NLBWMon (流量监控)'
+        description: 'NLBWMon 流量监控'
         required: true
         default: 'true'
         type: boolean
@@ -309,7 +306,7 @@ on:
         type: boolean
       
       enable_wireguard:
-        description: 'WireGuard (VPN)'
+        description: 'WireGuard'
         required: true
         default: 'false'
         type: boolean
@@ -321,13 +318,13 @@ on:
         type: boolean
       
       enable_zerotier:
-        description: 'ZeroTier (内网穿透)'
+        description: 'ZeroTier'
         required: true
         default: 'false'
         type: boolean
       
       enable_frpc:
-        description: 'Frp Client (内网穿透)'
+        description: 'Frp Client'
         required: true
         default: 'false'
         type: boolean
@@ -338,44 +335,44 @@ on:
         default: 'false'
         type: boolean
       
-      # ========== 系统工具 ==========
+      # 系统工具
       enable_autoreboot:
-        description: 'Auto Reboot (自动重启)'
+        description: 'Auto Reboot'
         required: true
         default: 'true'
         type: boolean
       
       enable_ttyd:
-        description: 'TTYD (网页终端)'
+        description: 'TTYD 网页终端'
         required: true
         default: 'true'
         type: boolean
       
       enable_cpufreq:
-        description: 'CPU Freq (CPU调频)'
+        description: 'CPU Freq'
         required: true
         default: 'true'
         type: boolean
       
       enable_irqbalance:
-        description: 'IRQ Balance (中断负载均衡)'
+        description: 'IRQ Balance'
         required: true
         default: 'true'
         type: boolean
       
       enable_sqm:
-        description: 'SQM QoS (流量整形)'
+        description: 'SQM QoS'
         required: true
         default: 'false'
         type: boolean
       
       enable_netdata:
-        description: 'NetData (系统监控)'
+        description: 'NetData'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 主题 ==========
+      # 主题
       enable_argon_theme:
         description: 'Argon主题'
         required: true
@@ -400,7 +397,7 @@ on:
         default: 'false'
         type: boolean
       
-      # ========== 网络协议 ==========
+      # 网络协议
       enable_ipv6:
         description: 'IPv6支持'
         required: true
@@ -414,43 +411,43 @@ on:
         type: boolean
       
       enable_mwan3:
-        description: 'MWAN3 (负载均衡)'
+        description: 'MWAN3 负载均衡'
         required: true
         default: 'false'
         type: boolean
       
       enable_syncdial:
-        description: 'SyncDial (多拨同步)'
+        description: 'SyncDial 多拨同步'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== USB功能 ==========
+      # USB功能
       enable_usb_printer:
-        description: 'USB打印机支持'
+        description: 'USB打印机'
         required: true
         default: 'false'
         type: boolean
       
       enable_usb_4g:
-        description: 'USB 4G/5G上网卡'
+        description: 'USB 4G/5G网卡'
         required: true
         default: 'false'
         type: boolean
       
       enable_usb_audio:
-        description: 'USB音频支持'
+        description: 'USB音频'
         required: true
         default: 'false'
         type: boolean
       
       enable_usb_serial:
-        description: 'USB串口支持'
+        description: 'USB串口'
         required: true
         default: 'false'
         type: boolean
       
-      # ========== 个性化设置 ==========
+      # 个性化
       default_ip:
         description: '默认IP地址'
         required: true
@@ -483,7 +480,7 @@ on:
           - America/New_York
           - Europe/London
       
-      # ========== 额外软件源 ==========
+      # 额外软件源
       add_kenzok8:
         description: '添加kenzok8软件源'
         required: true
@@ -553,19 +550,15 @@ jobs:
         # 基础平台配置
         echo "CONFIG_TARGET_${{ github.event.inputs.target_platform }}=y" >> .config
         
-        # ===== Overlay大小设置 =====
+        # Overlay大小设置
         if [ "${{ github.event.inputs.customize_overlay }}" == "true" ]; then
           echo "CONFIG_TARGET_ROOTFS_PARTSIZE=${{ github.event.inputs.rootfs_size }}" >> .config
           
-          # 针对x86平台详细设置
           if [[ "${{ github.event.inputs.target_platform }}" == x86_64 ]]; then
-            # 设置Overlay类型
             case "${{ github.event.inputs.overlay_type }}" in
               f2fs)
                 echo "CONFIG_TARGET_ROOTFS_F2FS=y" >> .config
-                # 修改内核配置中的分区大小
                 sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${{ github.event.inputs.rootfs_size }}/g" target/linux/x86/image/Makefile
-                # 添加Overlay大小配置（部分版本支持）
                 echo "CONFIG_TARGET_ROOTFS_OVERLAY_SIZE=${{ github.event.inputs.overlay_size }}" >> .config
                 ;;
               ext4)
@@ -575,16 +568,13 @@ jobs:
                 ;;
               squashfs)
                 echo "CONFIG_TARGET_ROOTFS_SQUASHFS=y" >> .config
-                # squashfs通常使用剩余空间，无需额外设置
                 ;;
             esac
             
-            # 扩展内核分区
             if [ "${{ github.event.inputs.expand_kernel }}" == "true" ]; then
               echo "CONFIG_TARGET_KERNEL_PARTSIZE=${{ github.event.inputs.kernel_size }}" >> .config
             fi
           else
-            # 非x86平台仅设置根分区大小，overlay由固件自动处理
             echo "注意：非x86平台Overlay大小可能无法直接自定义，将使用默认布局。"
           fi
         fi
@@ -594,7 +584,7 @@ jobs:
         echo "CONFIG_PACKAGE_luci-ssl=y" >> .config
         echo "CONFIG_PACKAGE_luci-compat=y" >> .config
         
-        # ========== 科学上网类 ==========
+        # 科学上网类
         if [ "${{ github.event.inputs.enable_passwall }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-passwall=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-passwall_Iptables_Transparent_Proxy=y" >> .config
@@ -620,7 +610,6 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-bypass=y" >> .config
         fi
         
-        # 代理核心
         if [ "${{ github.event.inputs.enable_v2ray }}" == "true" ]; then
           echo "CONFIG_PACKAGE_v2ray-core=y" >> .config
           echo "CONFIG_PACKAGE_v2ray-plugin=y" >> .config
@@ -642,7 +631,7 @@ jobs:
           echo "CONFIG_PACKAGE_naiveproxy=y" >> .config
         fi
         
-        # ========== 网络加速 ==========
+        # 网络加速
         if [ "${{ github.event.inputs.enable_sfe }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-flowoffload=y" >> .config
           echo "CONFIG_PACKAGE_kmod-fast-classifier=y" >> .config
@@ -665,7 +654,7 @@ jobs:
           echo "CONFIG_PACKAGE_turboacc=y" >> .config
         fi
         
-        # ========== 存储管理 ==========
+        # 存储管理
         if [ "${{ github.event.inputs.enable_diskman }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-diskman=y" >> .config
           echo "CONFIG_PACKAGE_luci-app-diskman_INCLUDE_badblocks=y" >> .config
@@ -698,7 +687,7 @@ jobs:
           echo "CONFIG_PACKAGE_aria2=y" >> .config
         fi
         
-        # ========== 文件共享 ==========
+        # 文件共享
         if [ "${{ github.event.inputs.enable_samba4 }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
         fi
@@ -715,7 +704,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-webdav=y" >> .config
         fi
         
-        # ========== 广告过滤 ==========
+        # 广告过滤
         if [ "${{ github.event.inputs.enable_adguardhome }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-adguardhome=y" >> .config
         fi
@@ -724,7 +713,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-adblock=y" >> .config
         fi
         
-        # ========== 网络工具 ==========
+        # 网络工具
         if [ "${{ github.event.inputs.enable_ddns }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-ddns=y" >> .config
         fi
@@ -770,7 +759,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-frps=y" >> .config
         fi
         
-        # ========== 系统工具 ==========
+        # 系统工具
         if [ "${{ github.event.inputs.enable_autoreboot }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-autoreboot=y" >> .config
         fi
@@ -795,7 +784,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-netdata=y" >> .config
         fi
         
-        # ========== 主题 ==========
+        # 主题
         if [ "${{ github.event.inputs.enable_argon_theme }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-theme-argon=y" >> .config
         fi
@@ -812,7 +801,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-theme-edge=y" >> .config
         fi
         
-        # ========== 网络协议 ==========
+        # 网络协议
         if [ "${{ github.event.inputs.enable_ipv6 }}" == "true" ]; then
           echo "CONFIG_PACKAGE_ipv6helper=y" >> .config
           echo "CONFIG_PACKAGE_odhcp6c=y" >> .config
@@ -831,7 +820,7 @@ jobs:
           echo "CONFIG_PACKAGE_luci-app-syncdial=y" >> .config
         fi
         
-        # ========== USB功能 ==========
+        # USB功能
         if [ "${{ github.event.inputs.enable_usb_printer }}" == "true" ]; then
           echo "CONFIG_PACKAGE_luci-app-usb-printer=y" >> .config
           echo "CONFIG_PACKAGE_kmod-usb-printer=y" >> .config
@@ -857,7 +846,7 @@ jobs:
           echo "CONFIG_PACKAGE_kmod-usb-serial-pl2303=y" >> .config
         fi
         
-        # ========== 基础工具 ==========
+        # 基础工具
         echo "CONFIG_PACKAGE_iperf3=y" >> .config
         echo "CONFIG_PACKAGE_htop=y" >> .config
         echo "CONFIG_PACKAGE_nano=y" >> .config
@@ -878,24 +867,19 @@ jobs:
       run: |
         cd openwrt
         
-        # 修改默认IP
         sed -i 's/192.168.1.1/${{ github.event.inputs.default_ip }}/g' package/base-files/files/bin/config_generate
         
-        # 修改主机名
         if [ -n "${{ github.event.inputs.hostname }}" ]; then
           sed -i "s/hostname='OpenWrt'/hostname='${{ github.event.inputs.hostname }}'/g" package/base-files/files/bin/config_generate
         fi
         
-        # 修改默认密码
         if [ -n "${{ github.event.inputs.default_password }}" ]; then
           PWD_HASH=$(openssl passwd -1 "${{ github.event.inputs.default_password }}")
           sed -i "s|root::0:0:99999:7:::|root:${PWD_HASH}:0:0:99999:7:::|g" package/base-files/files/etc/shadow
         fi
         
-        # 设置时区
         sed -i "s/timezone='UTC'/timezone='${{ github.event.inputs.timezone }}'/g" package/base-files/files/bin/config_generate
         
-        # 添加自定义脚本
         mkdir -p files/etc/uci-defaults
         cat > files/etc/uci-defaults/99-custom << "EOF"
 #!/bin/sh
@@ -924,7 +908,6 @@ EOF
         mkdir -p artifacts
         find bin/targets/ -type f \( -name "*.bin" -o -name "*.img" -o -name "*.gz" -o -name "*.xz" -o -name "*.vmdk" -o -name "*.iso" -o -name "*.manifest" -o -name "sha256sums" \) -exec cp {} artifacts/ \;
         
-        # 生成固件信息
         cd artifacts
         {
           echo "=== 固件信息 ==="

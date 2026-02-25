@@ -1,8 +1,23 @@
-name: Build ImmortalWrt固件
+name: Build Custom ImmortalWrt
 
+# 触发条件
 on:
+  # 关键：启用手动触发按钮
   workflow_dispatch:
     inputs:
+      description:
+        description: '编译描述 (可选)'
+        required: false
+        default: '手动触发编译'
+  # 当配置文件更新时自动触发（在你的个人配置仓库）
+  repository_dispatch:
+    types: [config_update]
+  # 推送工作流文件自身时也触发（用于调试）
+  push:
+    paths:
+      - '.github/workflows/build.yml'
+name: Build ImmortalWrt固件
+
       version:
         description: '选择ImmortalWrt版本 (推荐: main 或 v24.10-SNAPSHOT)'
         required: true
@@ -934,3 +949,4 @@ EOF
       with:
         name: compile-logs
         path: openwrt/logs/
+
